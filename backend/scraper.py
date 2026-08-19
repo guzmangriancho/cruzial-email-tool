@@ -565,10 +565,18 @@ def _primer_path_existente(candidatos: List[Optional[str]]) -> Optional[str]:
 
 
 def _detectar_chrome_bin() -> Optional[str]:
+    home = os.path.expanduser("~")
     return _primer_path_existente([
         os.getenv("CHROME_BIN"),
         os.getenv("GOOGLE_CHROME_BIN"),
         os.getenv("CHROME_PATH"),
+        # macOS (Intel y Apple Silicon).
+        "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+        os.path.join(home, "Applications/Google Chrome.app/Contents/MacOS/Google Chrome"),
+        "/Applications/Chromium.app/Contents/MacOS/Chromium",
+        os.path.join(home, "Applications/Chromium.app/Contents/MacOS/Chromium"),
+        "/Applications/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+        # Linux / instalaciones por PATH.
         "chromium",
         "chromium-browser",
         "google-chrome",
@@ -586,8 +594,10 @@ def _detectar_chromedriver() -> Optional[str]:
         os.getenv("CHROMEDRIVER_PATH"),
         os.getenv("CHROME_DRIVER_PATH"),
         "chromedriver",
-        "/usr/bin/chromedriver",
+        # Homebrew Apple Silicon / Intel y rutas Linux habituales.
+        "/opt/homebrew/bin/chromedriver",
         "/usr/local/bin/chromedriver",
+        "/usr/bin/chromedriver",
     ])
 
 
@@ -612,7 +622,7 @@ def crear_driver() -> webdriver.Chrome:
     opciones.add_argument("--disable-gpu")
     opciones.add_argument("--disable-software-rasterizer")
     opciones.add_argument("--disable-extensions")
-    opciones.add_argument("--remote-debugging-port=9222")
+    opciones.add_argument("--remote-debugging-port=0")
     opciones.add_argument("--window-size=1400,1100")
     opciones.add_argument(f"user-agent={random.choice(USER_AGENTS)}")
     opciones.add_experimental_option("excludeSwitches", ["enable-automation"])
@@ -627,12 +637,17 @@ def crear_driver() -> webdriver.Chrome:
 
     try:
         if chromedriver_path:
-            service = Service(chromedriver_path)
+            driver = webdriver.Chrome(service=Service(chromedriver_path), options=opciones)
         else:
-            # Si no hay driver local, webdriver-manager lo resuelve usando Internet.
-            service = Service(ChromeDriverManager().install())
-
-        driver = webdriver.Chrome(service=service, options=opciones)
+            # Selenium Manager es la primera opción: detecta SO/arquitectura y funciona
+            # correctamente en macOS Intel/Apple Silicon, Windows y Linux.
+            try:
+                driver = webdriver.Chrome(options=opciones)
+            except WebDriverException:
+                # Compatibilidad con instalaciones donde Selenium Manager no pueda
+                # resolver el driver; webdriver-manager queda como respaldo.
+                service = Service(ChromeDriverManager().install())
+                driver = webdriver.Chrome(service=service, options=opciones)
     except WebDriverException as exc:
         mensaje = str(exc).lower()
         if "cannot find chrome binary" in mensaje or "no chrome binary" in mensaje or "chrome binary" in mensaje:

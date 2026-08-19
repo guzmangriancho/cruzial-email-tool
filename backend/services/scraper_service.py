@@ -1196,6 +1196,7 @@ def diagnostico_entorno_scraper():
         "chromedriver_path_env": scraper.os.getenv("CHROMEDRIVER_PATH"),
         "recomendacion": (
             "Si chrome_bin aparece vacío, instala Google Chrome en este equipo o define "
-            "CHROME_BIN/CHROMEDRIVER_PATH en .env si usas rutas no estándar."
+            "CHROME_BIN/CHROMEDRIVER_PATH en .env si usas rutas no estándar. "
+            "En macOS se detecta automáticamente Google Chrome dentro de /Applications."
         ),
     }

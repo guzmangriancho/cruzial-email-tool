@@ -264,7 +264,7 @@ export default function AjustesPage() {
               <div>
                 <h2 className="text-lg font-semibold text-[var(--app-text)]">Base de datos SQLite</h2>
                 <p className="mt-1 text-sm text-[var(--app-text-muted)]">
-                  La ruta se cambia en <code>.env</code> mediante <code>CRUZIAL_DB_PATH</code>. Puede ser una ruta local, unidad de red o UNC.
+                  La ruta se cambia en <code>.env</code> mediante <code>CRUZIAL_DB_PATH</code>. En Windows admite ruta local, unidad de red o UNC; en macOS usa una ruta local o un volumen montado en <code>/Volumes</code>.
                 </p>
               </div>
             </div>

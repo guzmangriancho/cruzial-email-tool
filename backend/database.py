@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import sqlite3
+import sys
 from pathlib import Path
 
 from sqlalchemy import create_engine, event
@@ -14,6 +15,21 @@ def _prepare_database_location() -> None:
     parent = os.path.dirname(DB_PATH)
     if not parent:
         return
+
+    # En macOS los recursos SMB/AFP montados por Finder viven normalmente en
+    # /Volumes/<nombre>. Si el volumen no está montado, abortamos en vez de
+    # arriesgarnos a crear una BBDD local vacía en una ruta parecida.
+    if sys.platform == "darwin":
+        db_path = Path(DB_PATH)
+        parts = db_path.parts
+        if len(parts) >= 3 and parts[0] == "/" and parts[1] == "Volumes":
+            volume_root = Path("/Volumes") / parts[2]
+            if not volume_root.exists():
+                raise RuntimeError(
+                    f"El volumen de red no está montado: {volume_root}. "
+                    "Móntalo desde Finder y revisa CRUZIAL_DB_PATH en .env."
+                )
+
     try:
         os.makedirs(parent, exist_ok=True)
     except OSError as exc:

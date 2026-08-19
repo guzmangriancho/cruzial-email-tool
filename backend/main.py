@@ -60,7 +60,7 @@ with SessionLocal() as db:
 app = FastAPI(
     title="Cruzial Local",
     description="Herramientas locales de captación, clientes, segmentos y campañas.",
-    version="1.2.0-local",
+    version="1.4.0-local",
 )
 
 cors_origins = [
@@ -136,7 +136,7 @@ def frontend_root():
         "app": "Cruzial Local",
         "modo": "local",
         "database": DB_PATH,
-        "aviso": "Frontend no compilado. Ejecuta Instalar_Cruzial.bat.",
+        "aviso": "Frontend no compilado. Ejecuta el instalador de tu sistema (Windows o macOS).",
     }
 
 
@@ -147,7 +147,7 @@ def frontend_spa(full_path: str):
         raise HTTPException(status_code=404, detail="Ruta no encontrada.")
 
     if not FRONTEND_INDEX.exists():
-        raise HTTPException(status_code=503, detail="Frontend no compilado. Ejecuta Instalar_Cruzial.bat.")
+        raise HTTPException(status_code=503, detail="Frontend no compilado. Ejecuta el instalador de tu sistema (Windows o macOS).")
 
     # Sirve ficheros generados (assets/favicon) sin permitir salir de dist.
     candidate = (FRONTEND_DIST / full_path).resolve()
