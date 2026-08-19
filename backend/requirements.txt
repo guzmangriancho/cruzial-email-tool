@@ -1,0 +1,13 @@
+fastapi
+uvicorn[standard]
+pydantic
+python-dotenv
+python-multipart
+SQLAlchemy>=2.0.0
+cryptography
+email-validator
+requests
+beautifulsoup4
+selenium
+webdriver-manager
+tzdata
