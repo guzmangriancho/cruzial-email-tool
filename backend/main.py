@@ -51,16 +51,23 @@ def configure_logging() -> logging.Logger:
 logger = configure_logging()
 
 # Crea solo las tablas necesarias si se usa una BBDD nueva. En la BBDD histórica
-# no elimina ni modifica las tablas antiguas de usuarios/IA/etc.
-models.Base.metadata.create_all(bind=engine)
-with SessionLocal() as db:
-    ensure_bootstrap_data(db)
-    db.execute(text("SELECT 1"))
+# no elimina ni modifica las tablas antiguas de usuarios/IA/etc. Dejamos trazas
+# explícitas porque una BBDD en SMB puede tardar en obtener un bloqueo inicial.
+logger.info("startup fase=database_init estado=iniciando path=%s", DB_PATH)
+try:
+    models.Base.metadata.create_all(bind=engine)
+    with SessionLocal() as db:
+        ensure_bootstrap_data(db)
+        db.execute(text("SELECT 1"))
+    logger.info("startup fase=database_init estado=ok")
+except Exception:
+    logger.exception("startup fase=database_init estado=error path=%s", DB_PATH)
+    raise
 
 app = FastAPI(
     title="Cruzial Local",
     description="Herramientas locales de captación, clientes, segmentos y campañas.",
-    version="1.4.0-local",
+    version="1.4.2-local",
 )
 
 cors_origins = [
@@ -123,8 +130,9 @@ API_PREFIXES = {"api", "health", "docs", "redoc", "openapi.json"}
 
 @app.get("/health")
 def health():
-    with SessionLocal() as db:
-        db.execute(text("SELECT 1"))
+    # Este endpoint comprueba que el proceso HTTP está listo. La comprobación
+    # detallada de SQLite está en /api/configuracion/estado. No abrimos otra
+    # conexión aquí para que el lanzador no introduzca bloqueos extra en SMB.
     return {"ok": True}
 
 

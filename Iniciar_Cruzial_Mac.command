@@ -1,6 +1,6 @@
 #!/bin/bash
-set -euo pipefail
-cd "$(dirname "$0")"
+set -u
+cd "$(dirname "$0")" || exit 1
 
 printf '\033]0;%s\007' "Cruzial Local"
 echo "====================================================="
@@ -11,12 +11,15 @@ echo
 if [[ ! -f ".env" || ! -x "venv-mac/bin/python" || ! -f "frontend/dist/index.html" ]]; then
   echo "Falta completar la instalación para macOS."
   echo "Ejecutando Instalar_Cruzial_Mac.command..."
-  ./Instalar_Cruzial_Mac.command
+  ./Instalar_Cruzial_Mac.command || exit 1
 fi
 
 PYTHON="$PWD/venv-mac/bin/python"
 URL="http://127.0.0.1:8000/clientes"
 HEALTH="http://127.0.0.1:8000/health"
+LOG_DIR="$PWD/logs"
+STARTUP_LOG="$LOG_DIR/servidor-mac.log"
+mkdir -p "$LOG_DIR"
 
 # Si Cruzial ya está ejecutándose en este Mac, simplemente abre el navegador.
 if curl -fsS --max-time 1 "$HEALTH" 2>/dev/null | grep -q '"ok"'; then
@@ -26,7 +29,9 @@ if curl -fsS --max-time 1 "$HEALTH" 2>/dev/null | grep -q '"ok"'; then
 fi
 
 echo "[1/2] Iniciando servidor local..."
-"$PYTHON" -m uvicorn backend.main:app --host 127.0.0.1 --port 8000 &
+echo "Registro de arranque: $STARTUP_LOG"
+echo "----- $(date '+%Y-%m-%d %H:%M:%S') nuevo arranque -----" >> "$STARTUP_LOG"
+"$PYTHON" -m uvicorn backend.main:app --host 127.0.0.1 --port 8000 >> "$STARTUP_LOG" 2>&1 &
 SERVER_PID=$!
 
 cleanup() {
@@ -38,22 +43,40 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 READY=0
-for _ in {1..40}; do
+# Hasta 90 s: suficiente para una primera apertura lenta o una BBDD SMB ocupada.
+for i in $(seq 1 180); do
   if ! kill -0 "$SERVER_PID" 2>/dev/null; then
+    echo
     echo "[ERROR] Cruzial se ha cerrado durante el arranque."
-    echo "Revisa logs/cruzial.log."
-    wait "$SERVER_PID" || true
+    echo "Últimas líneas del error:"
+    echo "-----------------------------------------------------"
+    tail -n 80 "$STARTUP_LOG" 2>/dev/null || true
+    echo "-----------------------------------------------------"
+    echo "Log completo: $STARTUP_LOG"
     exit 1
   fi
+
   if curl -fsS --max-time 1 "$HEALTH" 2>/dev/null | grep -q '"ok"'; then
     READY=1
     break
   fi
-  sleep 0.25
+
+  # Feedback cada 10 segundos, sin llenar la consola.
+  if (( i % 20 == 0 )); then
+    echo "  El backend sigue iniciándose... ($((i / 2)) s)"
+  fi
+  sleep 0.5
 done
 
 if [[ "$READY" -ne 1 ]]; then
-  echo "[ERROR] El servidor no respondió a tiempo. Revisa logs/cruzial.log."
+  echo
+  echo "[ERROR] El servidor no respondió después de 90 segundos."
+  echo "Últimas líneas del arranque:"
+  echo "-----------------------------------------------------"
+  tail -n 80 "$STARTUP_LOG" 2>/dev/null || true
+  echo "-----------------------------------------------------"
+  echo "Comprueba también CRUZIAL_DB_PATH en .env y que el volumen de red esté montado."
+  echo "Log completo: $STARTUP_LOG"
   exit 1
 fi
 

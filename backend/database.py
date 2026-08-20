@@ -67,8 +67,9 @@ def _sqlite_pragmas(dbapi_connection, _connection_record):
     try:
         cursor.execute(f"PRAGMA busy_timeout={int(SQLITE_TIMEOUT_SECONDS * 1000)}")
         cursor.execute("PRAGMA foreign_keys=ON")
-        # DELETE es más compatible con carpetas de red que WAL.
-        cursor.execute("PRAGMA journal_mode=DELETE")
+        # No cambiamos journal_mode en cada conexión. SQLite usa DELETE por
+        # defecto y forzarlo repetidamente puede necesitar un bloqueo exclusivo,
+        # especialmente molesto en volúmenes SMB de macOS.
         cursor.execute("PRAGMA synchronous=FULL")
     finally:
         cursor.close()
