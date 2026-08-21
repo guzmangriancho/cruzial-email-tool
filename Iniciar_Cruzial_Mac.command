@@ -8,10 +8,41 @@ echo "               INICIANDO CRUZIAL LOCAL"
 echo "====================================================="
 echo
 
-if [[ ! -f ".env" || ! -x "venv-mac/bin/python" || ! -f "frontend/dist/index.html" ]]; then
+if [[ ! -f ".env" || ! -x "venv-mac/bin/python" ]]; then
   echo "Falta completar la instalación para macOS."
   echo "Ejecutando Instalar_Cruzial_Mac.command..."
   ./Instalar_Cruzial_Mac.command || exit 1
+fi
+
+FRONTEND_STALE=0
+if [[ ! -f "frontend/dist/index.html" ]]; then
+  FRONTEND_STALE=1
+elif find frontend/src frontend/package.json frontend/package-lock.json frontend/vite.config.ts \
+  -type f -newer frontend/dist/index.html -print -quit 2>/dev/null | grep -q .; then
+  FRONTEND_STALE=1
+fi
+
+if [[ "$FRONTEND_STALE" -eq 1 ]]; then
+  echo "Se han detectado cambios en la interfaz. Recompilando..."
+  NPM_BIN=""
+  if command -v npm >/dev/null 2>&1; then NPM_BIN="$(command -v npm)"; fi
+  [[ -z "$NPM_BIN" && -x /usr/local/bin/npm ]] && NPM_BIN=/usr/local/bin/npm
+  [[ -z "$NPM_BIN" && -x /opt/homebrew/bin/npm ]] && NPM_BIN=/opt/homebrew/bin/npm
+
+  if [[ -z "$NPM_BIN" ]]; then
+    echo "[ERROR] No se ha encontrado Node.js / npm."
+    echo "Instala Node.js para poder recompilar la interfaz."
+    exit 1
+  fi
+
+  export PATH="$(dirname "$NPM_BIN"):$PATH"
+  (
+    cd frontend || exit 1
+    if [[ ! -d node_modules ]]; then
+      "$NPM_BIN" install || exit 1
+    fi
+    "$NPM_BIN" run build || exit 1
+  ) || exit 1
 fi
 
 PYTHON="$PWD/venv-mac/bin/python"
@@ -43,7 +74,6 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 READY=0
-# Hasta 90 s: suficiente para una primera apertura lenta o una BBDD SMB ocupada.
 for i in $(seq 1 180); do
   if ! kill -0 "$SERVER_PID" 2>/dev/null; then
     echo
@@ -61,7 +91,6 @@ for i in $(seq 1 180); do
     break
   fi
 
-  # Feedback cada 10 segundos, sin llenar la consola.
   if (( i % 20 == 0 )); then
     echo "  El backend sigue iniciándose... ($((i / 2)) s)"
   fi

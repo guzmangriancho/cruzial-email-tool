@@ -18,3 +18,12 @@ class AiPromptResponse(BaseModel):
 
 class AiPromptPayload(BaseModel):
     prompt: str = Field(min_length=1, max_length=20000)
+
+
+class EmailSignatureResponse(BaseModel):
+    signature_html: str
+    is_default: bool = False
+
+
+class EmailSignaturePayload(BaseModel):
+    signature_html: str = Field(max_length=50000)

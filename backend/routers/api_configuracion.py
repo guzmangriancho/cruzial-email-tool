@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from backend.config import DB_PATH, LOG_DIR
 from backend.dependencies import get_db
-from backend.schemas.configuracion import AiPromptPayload, AiPromptResponse, LocalStatusResponse
+from backend.schemas.configuracion import AiPromptPayload, AiPromptResponse, EmailSignaturePayload, EmailSignatureResponse, LocalStatusResponse
 from backend.schemas.organizacion_smtp import SmtpConfigPayload, SmtpConfigStatusResponse, SmtpTestResponse
 from backend.services import local_settings_service
 from backend.services import organizacion_smtp_service as smtp_service
@@ -46,14 +46,29 @@ def reset_ai_prompt(db: Session = Depends(get_db)):
     return local_settings_service.reset_ai_prompt(db)
 
 
+@router.get("/firma-email", response_model=EmailSignatureResponse)
+def get_email_signature(db: Session = Depends(get_db)):
+    return local_settings_service.get_email_signature(db)
+
+
+@router.put("/firma-email", response_model=EmailSignatureResponse)
+def save_email_signature(payload: EmailSignaturePayload, db: Session = Depends(get_db)):
+    return local_settings_service.save_email_signature(payload.signature_html, db)
+
+
+@router.delete("/firma-email", response_model=EmailSignatureResponse)
+def reset_email_signature(db: Session = Depends(get_db)):
+    return local_settings_service.reset_email_signature(db)
+
+
 @router.get("/smtp", response_model=SmtpConfigStatusResponse)
 def get_smtp_status(db: Session = Depends(get_db)):
     return smtp_service.get_status(db)
 
 
 @router.post("/smtp/probar", response_model=SmtpTestResponse)
-def test_smtp(payload: SmtpConfigPayload):
-    return smtp_service.test_config(payload)
+def test_smtp(payload: SmtpConfigPayload, db: Session = Depends(get_db)):
+    return smtp_service.test_config(payload, db)
 
 
 @router.put("/smtp", response_model=SmtpConfigStatusResponse)

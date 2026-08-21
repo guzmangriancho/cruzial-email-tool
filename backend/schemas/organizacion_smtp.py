@@ -24,7 +24,7 @@ class SmtpConfigStatusResponse(BaseModel):
 
 class SmtpConfigPayload(BaseModel):
     smtp_username: str = Field(..., min_length=3, max_length=255)
-    smtp_password: str = Field(..., min_length=1, max_length=1024)
+    smtp_password: Optional[str] = Field(None, max_length=1024)
     from_name: Optional[str] = Field(None, max_length=255)
     from_email: Optional[str] = Field(None, max_length=255)
     reply_to: Optional[str] = Field(None, max_length=255)

@@ -12,6 +12,7 @@ const ALLOWED_TAGS = new Set([
 	"H4",
 	"HR",
 	"I",
+	"IMG",
 	"LI",
 	"OL",
 	"P",
@@ -29,6 +30,7 @@ const ALLOWED_TAGS = new Set([
 ]);
 
 const GLOBAL_ATTRS = new Set(["title", "colspan", "rowspan"]);
+const IMAGE_ATTRS = new Set(["alt", "width", "height"]);
 const LINK_PROTOCOLS = ["http:", "https:", "mailto:", "tel:"];
 
 function isSafeUrl(value: string) {
@@ -76,6 +78,17 @@ function sanitizeNode(node: Node, documentRef: Document): Node | null {
 			cleanElement.setAttribute("href", value);
 			cleanElement.setAttribute("target", "_blank");
 			cleanElement.setAttribute("rel", "noopener noreferrer");
+			return;
+		}
+
+		if (tag === "IMG" && name === "src") {
+			if (!isSafeUrl(value)) return;
+			cleanElement.setAttribute("src", value);
+			return;
+		}
+
+		if (tag === "IMG" && IMAGE_ATTRS.has(name)) {
+			cleanElement.setAttribute(name, value);
 			return;
 		}
 

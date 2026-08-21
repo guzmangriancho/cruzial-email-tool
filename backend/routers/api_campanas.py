@@ -7,7 +7,8 @@ from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPExcepti
 from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy.orm import Session
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
+from pathlib import Path
 
 from backend import schemas
 from backend.dependencies import get_db
@@ -23,6 +24,13 @@ def listar_campanas(skip: int = 0, limit: int = 50, db: Session = Depends(get_db
 @router.get("/adjuntos-disponibles")
 def listar_adjuntos_disponibles():
     return controller.listar_adjuntos_disponibles()
+
+@router.get("/logo-firma", include_in_schema=False)
+def obtener_logo_firma():
+    ruta = Path(__file__).resolve().parents[2] / "adjuntos_genericos" / "logo_cruzial.jpeg"
+    if not ruta.is_file():
+        raise HTTPException(status_code=404, detail="Logo de firma no encontrado.")
+    return FileResponse(ruta, media_type="image/jpeg", filename="logo_cruzial.jpeg")
 
 @router.post("/enviar-prueba")
 async def enviar_prueba_campana(

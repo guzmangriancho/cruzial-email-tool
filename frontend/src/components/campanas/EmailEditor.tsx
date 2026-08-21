@@ -31,11 +31,13 @@ import {
 } from "lucide-react";
 
 import { sanitizarHtmlBasico } from "../../utils/campanasUtils";
+import { configuracionService } from "../../services/configuracionService";
 import { Button, Card } from "../ui";
 import { sanitizeHtml } from "../../utils/sanitizeHtml";
 
 interface EmailEditorProps {
 	asunto: string;
+	remitente: string;
 	html: string;
 	onHtmlChange: (html: string) => void;
 	onEditorFocus?: () => void;
@@ -158,11 +160,12 @@ function ToolbarDivider() {
 }
 
 export const EmailEditor = forwardRef<EmailEditorHandle, EmailEditorProps>(
-	function EmailEditor({ asunto, html, onHtmlChange, onEditorFocus }, ref) {
+	function EmailEditor({ asunto, remitente, html, onHtmlChange, onEditorFocus }, ref) {
 		const [modoCuerpo, setModoCuerpo] = useState<"editar" | "preview">(
 			"editar",
 		);
 		const [estadoPegadoHtml, setEstadoPegadoHtml] = useState<string | null>(null);
+		const [firmaHtml, setFirmaHtml] = useState<string>("");
 
 		const editorRef = useRef<HTMLDivElement>(null);
 		const savedRangeRef = useRef<Range | null>(null);
@@ -176,6 +179,41 @@ export const EmailEditor = forwardRef<EmailEditorHandle, EmailEditorProps>(
 		const asuntoPreview = useMemo(() => {
 			return renderizarVariablesPreview(asunto) || "Sin asunto";
 		}, [asunto]);
+
+		useEffect(() => {
+			let activo = true;
+
+			configuracionService
+				.firmaEmail()
+				.then((firma) => {
+					if (activo) setFirmaHtml(firma.signature_html || "");
+				})
+				.catch((error) => {
+					console.warn("No se pudo cargar la firma para la vista previa", error);
+					if (activo) setFirmaHtml("");
+				});
+
+			return () => {
+				activo = false;
+			};
+		}, []);
+
+		const firmaPreview = useMemo(() => {
+			if (!firmaHtml.trim()) return "";
+
+			const apiOrigin =
+				typeof window !== "undefined" && window.location.port !== "5173"
+					? window.location.origin
+					: "http://127.0.0.1:8000";
+
+			return firmaHtml
+				.replace(/\{\{nombre_remitente\}\}/g, remitente || "Remitente")
+				.replace(
+					/<img([^>]*?)src=["']cid:firmaLogo["']([^>]*)>/gi,
+					`<img$1src="${apiOrigin}/api/campanas/logo-firma" width="200"$2>`,
+				)
+				.replace(/cid:firmaLogo/g, `${apiOrigin}/api/campanas/logo-firma`);
+		}, [firmaHtml, remitente]);
 
 		useEffect(() => {
 			if (modoCuerpo !== "editar") return;
@@ -417,6 +455,74 @@ export const EmailEditor = forwardRef<EmailEditorHandle, EmailEditorProps>(
 			}, 0);
 		};
 
+		if (modoCuerpo === "preview") {
+			return (
+				<Card className="overflow-hidden rounded-sm">
+					<div className="rounded-sm bg-[#f3f4f6] p-4 md:p-6">
+						<div className="mx-auto mb-3 flex max-w-[760px] justify-end">
+							<Button
+								type="button"
+								onClick={irAEditar}
+								size="sm"
+								variant="secondary"
+								leftIcon={<FileText size={16} />}
+							>
+								Volver a editar
+							</Button>
+						</div>
+
+						<div className="mx-auto max-w-[760px] overflow-hidden rounded-sm border border-[var(--app-border)] bg-[var(--app-surface-raised)] shadow-lg">
+							<div className="border-b border-gray-100 bg-[var(--app-surface-raised)] px-6 py-5">
+								<p className="text-xs font-medium uppercase tracking-wide text-[var(--app-text-subtle)]">
+									Asunto
+								</p>
+								<h3 className="mt-1 text-xl font-semibold text-[var(--app-text)]">
+									{asuntoPreview}
+								</h3>
+								<div className="mt-4 space-y-1 text-sm text-[var(--app-text-muted)]">
+									<p>
+										<span className="font-medium text-[var(--app-text-subtle)]">De:</span>{" "}
+										{remitente || "Remitente"}
+									</p>
+									<p>
+										<span className="font-medium text-[var(--app-text-subtle)]">Para:</span>{" "}
+										Empresa Demo &lt;cliente@ejemplo.com&gt;
+									</p>
+								</div>
+							</div>
+
+							<div className="bg-[var(--app-surface-raised)] px-6 py-7 md:px-8 md:py-8">
+								<div className="max-w-[640px] font-sans text-[14px] leading-[1.65] text-[#333]">
+									{editorVacio(htmlPreview) ? (
+										<div className="rounded-sm border border-dashed border-gray-300 bg-[var(--app-surface-muted)] px-5 py-10 text-center text-[var(--app-text-subtle)]">
+											<FileText className="mx-auto mb-3" />
+											<p className="font-semibold">Sin contenido todavía</p>
+										</div>
+									) : (
+										<div
+											className="email-preview-body"
+											dangerouslySetInnerHTML={{ __html: sanitizeHtml(htmlPreview) }}
+										/>
+									)}
+
+									{firmaPreview && (
+										<div
+											className="email-preview-signature"
+											dangerouslySetInnerHTML={{ __html: sanitizeHtml(firmaPreview) }}
+										/>
+									)}
+								</div>
+							</div>
+
+							<div className="border-t border-gray-100 bg-[var(--app-surface-muted)] px-6 py-3 text-xs text-[var(--app-text-subtle)]">
+								Vista previa con datos de ejemplo. El envío real usará cada cliente del CSV.
+							</div>
+						</div>
+					</div>
+				</Card>
+			);
+		}
+
 		return (
 			<Card className="overflow-hidden rounded-sm">
 				<div className="border-b border-gray-100 bg-[var(--app-surface-muted)] px-4 py-3">
@@ -437,7 +543,7 @@ export const EmailEditor = forwardRef<EmailEditorHandle, EmailEditorProps>(
 								type="button"
 								onClick={irAEditar}
 								size="sm"
-								variant={modoCuerpo === "editar" ? "primary" : "ghost"}
+								variant="primary"
 								leftIcon={<FileText size={16} />}
 								className="rounded-sm"
 							>
@@ -448,7 +554,7 @@ export const EmailEditor = forwardRef<EmailEditorHandle, EmailEditorProps>(
 								type="button"
 								onClick={irAPreview}
 								size="sm"
-								variant={modoCuerpo === "preview" ? "primary" : "ghost"}
+								variant="ghost"
 								leftIcon={<Eye size={16} />}
 								className="rounded-sm"
 							>
@@ -625,8 +731,8 @@ export const EmailEditor = forwardRef<EmailEditorHandle, EmailEditorProps>(
 
 									<div className="mt-4 space-y-1 text-sm text-[var(--app-text-muted)]">
 										<p>
-											<span className="font-medium text-[var(--app-text-subtle)]">De:</span> Grupo
-											Publicitario Cruzial
+											<span className="font-medium text-[var(--app-text-subtle)]">De:</span>{" "}
+											{remitente || "Remitente"}
 										</p>
 										<p>
 											<span className="font-medium text-[var(--app-text-subtle)]">Para:</span>{" "}
@@ -649,35 +755,12 @@ export const EmailEditor = forwardRef<EmailEditorHandle, EmailEditorProps>(
 											/>
 										)}
 
-										<div className="email-preview-signature">
-											<br />
-											<p>
-												Agradeciéndoles de antemano su atención.
-												<br />
-												Quedo a su entera disposición para cualquier duda.
-												<br />
-												Un cordial saludo,
-											</p>
-
-											<p>
-												<b>Ignacio González-Riancho</b>
-												<br />
-												Grupo Publicitario Cruzial
-											</p>
-
-											<div className="my-3 flex h-[54px] w-[200px] items-center justify-center rounded border border-[var(--app-border)] bg-[var(--app-surface-muted)] text-xs font-medium text-[var(--app-text-subtle)]">
-												LOGO CRUZIAL
-											</div>
-
-											<p className="text-[11px] leading-5 text-[#777]">
-												<b>GRUPO PUBLICITARIO CRUZIAL, S.L.</b> CIF:
-												B-39.378.146.
-												<br />
-												Bº La Yesera, 51 - nave 1. 39.612 Parbayón CANTABRIA
-												<br />
-												Tlfs: 942 03 34 04. email: admin@cruzialpublicidad.com
-											</p>
-										</div>
+										{firmaPreview && (
+											<div
+												className="email-preview-signature"
+												dangerouslySetInnerHTML={{ __html: sanitizeHtml(firmaPreview) }}
+											/>
+										)}
 									</div>
 								</div>
 

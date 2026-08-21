@@ -26,7 +26,7 @@ export type SmtpStatus = {
 
 export type SmtpPayload = {
   smtp_username: string;
-  smtp_password: string;
+  smtp_password?: string;
   from_name?: string;
   from_email?: string;
   reply_to?: string;
@@ -38,6 +38,11 @@ export type SmtpPayload = {
 
 export type SmtpTest = { ok: boolean; message: string; smtp_host?: string | null; smtp_port?: number | null; smtp_security?: string | null };
 
+export type EmailSignatureStatus = {
+  signature_html: string;
+  is_default: boolean;
+};
+
 export type AiPromptStatus = {
   prompt: string;
   is_default: boolean;
@@ -48,6 +53,9 @@ export const configuracionService = {
   async promptIa() { return (await api.get<AiPromptStatus>("/configuracion/prompt-ia")).data; },
   async promptIaGuardar(prompt: string) { return (await api.put<AiPromptStatus>("/configuracion/prompt-ia", { prompt })).data; },
   async promptIaRestaurar() { return (await api.delete<AiPromptStatus>("/configuracion/prompt-ia")).data; },
+  async firmaEmail() { return (await api.get<EmailSignatureStatus>("/configuracion/firma-email")).data; },
+  async firmaEmailGuardar(signature_html: string) { return (await api.put<EmailSignatureStatus>("/configuracion/firma-email", { signature_html })).data; },
+  async firmaEmailRestaurar() { return (await api.delete<EmailSignatureStatus>("/configuracion/firma-email")).data; },
   async smtpEstado() { return (await api.get<SmtpStatus>("/configuracion/smtp")).data; },
   async smtpProbar(payload: SmtpPayload) { return (await api.post<SmtpTest>("/configuracion/smtp/probar", payload)).data; },
   async smtpGuardar(payload: SmtpPayload) { return (await api.put<SmtpStatus>("/configuracion/smtp", payload)).data; },

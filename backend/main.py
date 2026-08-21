@@ -139,7 +139,7 @@ def health():
 @app.get("/", include_in_schema=False)
 def frontend_root():
     if FRONTEND_INDEX.exists():
-        return FileResponse(FRONTEND_INDEX)
+        return FileResponse(FRONTEND_INDEX, headers={"Cache-Control": "no-store, no-cache, must-revalidate"})
     return {
         "app": "Cruzial Local",
         "modo": "local",
@@ -167,4 +167,4 @@ def frontend_spa(full_path: str):
 
     if candidate.is_file():
         return FileResponse(candidate)
-    return FileResponse(FRONTEND_INDEX)
+    return FileResponse(FRONTEND_INDEX, headers={"Cache-Control": "no-store, no-cache, must-revalidate"})

@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import {
   ChevronLeft,
@@ -11,6 +11,7 @@ import {
   Settings,
 } from "lucide-react";
 
+import { configuracionService } from "../../services/configuracionService";
 import { cx, ui } from "../ui";
 
 type NavItem = { label: string; to: string; icon: ReactNode; description: string };
@@ -26,6 +27,34 @@ const NAV_ITEMS: NavItem[] = [
 
 export function AppLayout() {
   const [collapsed, setCollapsed] = useState(false);
+  const [configuredEmail, setConfiguredEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadConfiguredEmail = async () => {
+      try {
+        const smtp = await configuracionService.smtpEstado();
+        if (active) {
+          setConfiguredEmail(smtp.smtp_username || smtp.from_email || null);
+        }
+      } catch {
+        if (active) setConfiguredEmail(null);
+      }
+    };
+
+    const handleSmtpUpdated = () => {
+      void loadConfiguredEmail();
+    };
+
+    void loadConfiguredEmail();
+    window.addEventListener("cruzial:smtp-updated", handleSmtpUpdated);
+
+    return () => {
+      active = false;
+      window.removeEventListener("cruzial:smtp-updated", handleSmtpUpdated);
+    };
+  }, []);
 
   return (
     <div className={ui.app.shell}>
@@ -80,7 +109,7 @@ export function AppLayout() {
           {!collapsed ? (
             <div className="min-w-0">
               <span className={ui.app.sidebarFooterText}>Cruzial Local</span>
-              <p className={ui.app.sidebarFooterSubtext}>Sin usuarios · SQLite</p>
+              <p className={ui.app.sidebarFooterSubtext} title={configuredEmail || "SMTP sin configurar"}>{configuredEmail || "SMTP sin configurar"}</p>
             </div>
           ) : (
             <Database size={17} />

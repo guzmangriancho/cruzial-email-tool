@@ -21,7 +21,7 @@ def normalizar_smtp_config(smtp_config: Any | None = None) -> dict:
         return {
             "host": "", "port": 0, "security": "ssl",
             "username": "", "password": "", "from_email": "",
-            "from_name": None, "reply_to": None,
+            "from_name": None, "reply_to": None, "signature_html": None,
         }
 
     if isinstance(smtp_config, Mapping):
@@ -40,6 +40,7 @@ def normalizar_smtp_config(smtp_config: Any | None = None) -> dict:
         "from_email": getter("from_email") or username,
         "from_name": getter("from_name"),
         "reply_to": getter("reply_to"),
+        "signature_html": getter("signature_html"),
     }
 
 
@@ -58,7 +59,9 @@ def html_a_texto(html: str) -> str:
     return re.sub(r"\n{3,}", "\n\n", texto).strip()
 
 
-def construir_firma_html(nombre_remitente: str) -> str:
+def construir_firma_html(nombre_remitente: str, firma_html: str | None = None) -> str:
+    if firma_html is not None:
+        return firma_html.replace("{{nombre_remitente}}", nombre_remitente)
     return f"""
     <br>
     <p>
@@ -133,7 +136,7 @@ def enviar_correo(
     from_email = config.get("from_email") or smtp_username
     reply_to = config.get("reply_to")
 
-    firma_html = construir_firma_html(nombre_remitente)
+    firma_html = construir_firma_html(nombre_remitente, config.get("signature_html"))
 
     cuerpo_html_final = f"""
     <div style="font-family: Arial, sans-serif; font-size: 14px; color: #333333; line-height: 1.6; max-width: 640px;">

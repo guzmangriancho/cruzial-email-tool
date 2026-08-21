@@ -701,6 +701,7 @@ Trabaja sobre este contexto. Si propones un correo nuevo o una mejora, devuelve 
         <EmailEditor
           ref={emailEditorRef}
           asunto={asunto}
+          remitente={remitente}
           html={htmlEditor}
           onHtmlChange={setHtmlEditor}
           onEditorFocus={() => setUltimoCampoVariable("cuerpo")}

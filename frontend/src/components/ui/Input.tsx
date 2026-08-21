@@ -50,7 +50,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
 				)}
 				{input}
 				{rightIcon && (
-					<span className={cx(ui.field.icon, "right-3")}>{rightIcon}</span>
+					<span className={cx(ui.field.icon, "right-3 pointer-events-auto")}>{rightIcon}</span>
 				)}
 			</div>
 		);

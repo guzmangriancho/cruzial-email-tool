@@ -813,6 +813,11 @@ def listar_adjuntos_disponibles():
         if not ruta.is_file():
             continue
 
+        # El logo corporativo se usa inline en la firma; no debe aparecer como
+        # adjunto seleccionable en las campañas.
+        if ruta.name.lower() == "logo_cruzial.jpeg":
+            continue
+
         adjuntos.append({
             "nombre": ruta.name,
             "size_bytes": ruta.stat().st_size,

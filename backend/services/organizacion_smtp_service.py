@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from backend.repositories import organizacion_smtp_repository as repo
 from backend.schemas.organizacion_smtp import SmtpConfigPayload, SmtpConfigStatusResponse, SmtpTestResponse
+from backend.services import local_settings_service
 from backend.utils.secret_box import decrypt_secret, encrypt_secret
 
 SMTP_TIMEOUT_SECONDS = float(os.getenv("SMTP_TEST_TIMEOUT_SECONDS", "8"))
@@ -28,6 +29,7 @@ class SmtpSendSettings:
     from_email: str
     from_name: str | None = None
     reply_to: str | None = None
+    signature_html: str | None = None
 
 
 @dataclass(frozen=True)
@@ -121,17 +123,29 @@ def test_smtp_login(candidate: SmtpCandidate, username: str, password: str) -> S
         return SmtpTestResponse(ok=False, message=f"No se pudo conectar con {candidate.host}:{candidate.port}: {type(exc).__name__}.")
 
 
-def discover_and_test(payload: SmtpConfigPayload) -> SmtpTestResponse:
+def _resolve_password(payload: SmtpConfigPayload, db: Session | None = None) -> str:
+    if payload.smtp_password:
+        return payload.smtp_password
+    if db is not None:
+        config = repo.get_by_organization_id(db, LOCAL_ORGANIZATION_ID)
+        if config and config.smtp_password_encrypted:
+            try:
+                return decrypt_secret(config.smtp_password_encrypted)
+            except Exception:
+                pass
+    raise HTTPException(status_code=422, detail="Introduce la contraseña SMTP.")
+
+
+def discover_and_test(payload: SmtpConfigPayload, db: Session | None = None) -> SmtpTestResponse:
     username = _normalize_email(payload.smtp_username)
-    if not payload.smtp_password:
-        raise HTTPException(status_code=422, detail="Introduce la contraseña SMTP.")
+    password = _resolve_password(payload, db)
     candidates = build_candidates(username, payload)
     if not candidates:
         raise HTTPException(status_code=422, detail="Indica un host SMTP o activa la detección automática.")
 
     messages: list[str] = []
     for candidate in candidates:
-        result = test_smtp_login(candidate, username, payload.smtp_password)
+        result = test_smtp_login(candidate, username, password)
         if result.ok:
             return result
         messages.append(result.message)
@@ -182,13 +196,14 @@ def get_status(db: Session) -> SmtpConfigStatusResponse:
     return _to_status(repo.get_by_organization_id(db, LOCAL_ORGANIZATION_ID))
 
 
-def test_config(payload: SmtpConfigPayload) -> SmtpTestResponse:
-    return discover_and_test(payload)
+def test_config(payload: SmtpConfigPayload, db: Session) -> SmtpTestResponse:
+    return discover_and_test(payload, db)
 
 
 def save_config(payload: SmtpConfigPayload, db: Session) -> SmtpConfigStatusResponse:
     username = _normalize_email(payload.smtp_username)
-    result = discover_and_test(payload)
+    password = _resolve_password(payload, db)
+    result = discover_and_test(payload, db)
     if not result.ok:
         raise HTTPException(status_code=422, detail=result.message)
 
@@ -203,7 +218,7 @@ def save_config(payload: SmtpConfigPayload, db: Session) -> SmtpConfigStatusResp
         smtp_port=int(result.smtp_port or 465),
         smtp_security=result.smtp_security or "ssl",
         smtp_username=username,
-        smtp_password_encrypted=encrypt_secret(payload.smtp_password),
+        smtp_password_encrypted=encrypt_secret(password),
         from_email=from_email,
         from_name=from_name,
         reply_to=reply_to,
@@ -240,4 +255,5 @@ def get_send_settings(db: Session, organization_id: int = LOCAL_ORGANIZATION_ID)
         from_email=config.from_email or config.smtp_username,
         from_name=config.from_name,
         reply_to=config.reply_to,
+        signature_html=local_settings_service.get_email_signature_html(db),
     )
