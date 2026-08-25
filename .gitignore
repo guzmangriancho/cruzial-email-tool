@@ -11,3 +11,6 @@ __pycache__/
 
 # Carpeta de datos local
 data/
+
+# Scripts macOS locales
+*.command
