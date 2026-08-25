@@ -43,14 +43,14 @@ fi
 
 # Comprueba que el entorno Python actual puede cargar el backend y que contiene
 # la ruta requerida. Esto evita arrancar con un entorno incompleto o anticuado.
-if ! "$PYTHON" -c "from backend.main import app; assert any(getattr(r, 'path', '') == '$REQUIRED_ROUTE' for r in app.routes)" >/dev/null 2>&1; then
+if ! "$PYTHON" -c "from backend.main import app; assert '$REQUIRED_ROUTE' in app.openapi().get('paths', {})" >/dev/null 2>&1; then
   echo "[ERROR] El entorno Python no puede cargar correctamente el backend actual"
   echo "o no encuentra la ruta $REQUIRED_ROUTE."
   echo
   echo "Intentando reparar la instalación..."
   run_installer
 
-  if ! "$PYTHON" -c "from backend.main import app; assert any(getattr(r, 'path', '') == '$REQUIRED_ROUTE' for r in app.routes)" >/dev/null 2>&1; then
+  if ! "$PYTHON" -c "from backend.main import app; assert '$REQUIRED_ROUTE' in app.openapi().get('paths', {})" >/dev/null 2>&1; then
     echo "[ERROR] La reparación no ha solucionado el backend."
     echo "Revisa $STARTUP_LOG o ejecuta:"
     echo "\"$PYTHON\" -c \"from backend.main import app; print([r.path for r in app.routes])\""
