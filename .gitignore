@@ -6,3 +6,8 @@ logs/*.log
 logs/*.log.*
 __pycache__/
 *.pyc
+# Base de datos local
+*.db
+
+# Carpeta de datos local
+data/
