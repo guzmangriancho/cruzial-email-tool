@@ -95,11 +95,7 @@ export const campanasService = {
 			formData.append("adjuntos_upload", file);
 		});
 
-		const res = await api.post("/campanas/enviar-prueba", formData, {
-			headers: {
-				"Content-Type": "multipart/form-data",
-			},
-		});
+		const res = await api.post("/campanas/enviar-prueba", formData);
 
 		return res.data;
 	},
