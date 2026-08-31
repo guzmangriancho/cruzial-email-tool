@@ -95,11 +95,7 @@ export const campanasService = {
 			formData.append("adjuntos_upload", file);
 		});
 
-		const res = await api.post("/campanas/enviar-prueba", formData, {
-			headers: {
-				"Content-Type": "multipart/form-data",
-			},
-		});
+		const res = await api.post("/campanas/enviar-prueba", formData);
 
 		return res.data;
 	},
@@ -107,11 +103,7 @@ export const campanasService = {
 	async actualizar(campanaId: number, data: DatosCampanaConAdjuntos) {
 		const formData = crearFormDataCampana(data);
 
-		const res = await api.put(`/campanas/${campanaId}`, formData, {
-			headers: {
-				"Content-Type": "multipart/form-data",
-			},
-		});
+		const res = await api.put(`/campanas/${campanaId}`, formData);
 
 		return res.data;
 	},
@@ -130,11 +122,7 @@ export const campanasService = {
 		);
 		formData.append("csv_file", data.csv_file);
 
-		const res = await api.post("/campanas/crear-csv", formData, {
-			headers: {
-				"Content-Type": "multipart/form-data",
-			},
-		});
+		const res = await api.post("/campanas/crear-csv", formData);
 
 		return res.data;
 	},
