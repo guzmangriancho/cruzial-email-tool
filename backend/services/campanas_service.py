@@ -699,6 +699,7 @@ def procesar_campana(task_id: str, campana_id: int):
                 return
 
             cliente = envio.cliente
+            envio_id = envio.id
 
             if not cliente or not cliente.email:
                 envio.estado = "Omitido"
@@ -706,23 +707,27 @@ def procesar_campana(task_id: str, campana_id: int):
                 envio.fecha_envio = datetime.utcnow()
                 envio.intentos = (envio.intentos or 0) + 1
                 db.commit()
-                log_task(task_id, f"⚠️ Omitido envío {envio.id}: cliente sin email.")
+                log_task(task_id, f"⚠️ Omitido envío {envio_id}: cliente sin email.")
                 continue
+
+            # Guardamos los datos que se usan después del commit como valores
+            # simples. Así el envío no depende de recargas ORM implícitas.
+            cliente_email = cliente.email
+            asunto = renderizar_plantilla(campana.plantilla.asunto, cliente)
+            cuerpo_html = renderizar_plantilla(campana.plantilla.cuerpo_html, cliente)
+            nombre_remitente = campana.remitente or smtp_settings.from_name or "Grupo Publicitario Cruzial"
 
             envio.estado = "Enviando"
             envio.intentos = (envio.intentos or 0) + 1
             db.commit()
 
-            asunto = renderizar_plantilla(campana.plantilla.asunto, cliente)
-            cuerpo_html = renderizar_plantilla(campana.plantilla.cuerpo_html, cliente)
-
-            log_task(task_id, f"✉️ Enviando a {cliente.email}...")
+            log_task(task_id, f"✉️ Enviando a {cliente_email}...")
 
             exito, detalle = mailer.enviar_correo(
-                destinatario=cliente.email,
+                destinatario=cliente_email,
                 asunto=asunto,
                 cuerpo_html_base=cuerpo_html,
-                nombre_remitente=campana.remitente or smtp_settings.from_name or "Grupo Publicitario Cruzial",
+                nombre_remitente=nombre_remitente,
                 rutas_adjuntos=rutas_adjuntos_campana,
                 smtp_config=smtp_settings,
             )
@@ -733,9 +738,9 @@ def procesar_campana(task_id: str, campana_id: int):
             db.commit()
 
             if exito:
-                log_task(task_id, f"✅ Enviado a {cliente.email}")
+                log_task(task_id, f"✅ Enviado a {cliente_email}")
             else:
-                log_task(task_id, f"❌ Error con {cliente.email}: {detalle[:120]}")
+                log_task(task_id, f"❌ Error con {cliente_email}: {detalle[:120]}")
 
             resumen = resumen_campana_db(db, campana_id, organization_id=organization_id)
             ESTADO_ENVIOS[task_id].update(resumen)

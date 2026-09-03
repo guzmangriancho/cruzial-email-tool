@@ -7,6 +7,7 @@ from pathlib import Path
 
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy.pool import NullPool
 
 from backend.config import DB_PATH
 
@@ -57,7 +58,9 @@ def _connect() -> sqlite3.Connection:
 engine = create_engine(
     "sqlite+pysqlite://",
     creator=_connect,
-    pool_pre_ping=True,
+    # SQLite es más fiable aquí sin reutilizar conexiones persistentes,
+    # especialmente en macOS y rutas montadas en /Volumes.
+    poolclass=NullPool,
 )
 
 
@@ -75,5 +78,12 @@ def _sqlite_pragmas(dbapi_connection, _connection_record):
         cursor.close()
 
 
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+SessionLocal = sessionmaker(
+    autocommit=False,
+    autoflush=False,
+    # Evita que SQLAlchemy expire objetos ORM tras cada commit y lance
+    # SELECT implícitos sobre una conexión que ya pueda haberse cerrado.
+    expire_on_commit=False,
+    bind=engine,
+)
 Base = declarative_base()
